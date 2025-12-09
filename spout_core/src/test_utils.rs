@@ -55,5 +55,9 @@ pub async fn create_test_db_with_migrations() -> AnyPool {
         .await
         .expect("Failed to run identity migrations");
 
+    crate::group::migrate_up(pool.clone())
+        .await
+        .expect("Failed to run group migrations");
+
     pool
 }
