@@ -22,6 +22,8 @@ pub fn init_test_drivers() {
 /// ```
 pub async fn create_test_db() -> AnyPool {
     // Using file::memory:?cache=shared allows multiple connections to share the same in-memory database
+    // Honestly, I'm not sure why we suddenly need this. In the past the ::sqlite:memory:: string has worked fine.
+    // My best guess it something to do with using the sqlx::Any drivers..
     AnyPool::connect("sqlite:file::memory:?cache=shared")
         .await
         .expect("Failed to create test database")

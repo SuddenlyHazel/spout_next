@@ -1,12 +1,7 @@
-use iroh::PublicKey;
-use sqlx::{Any, Pool};
 use thiserror::Error;
 use zel_core::prelude::*;
 
-use crate::{
-    identity::{self, Identity},
-    profile::Profile,
-};
+use crate::identity::{self};
 
 #[derive(Debug, Error)]
 pub enum IdentitiesServiceError {
@@ -29,53 +24,55 @@ impl From<IdentitiesServiceError> for ResourceError {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct IdentitiesService {
-    pool: Pool<Any>,
-}
+// Everything here a the moment can live in ProfilesService
 
-impl IdentitiesService {
-    pub async fn create(
-        &self,
-        node_id: PublicKey,
-        profile: &Profile,
-    ) -> Result<Identity, IdentitiesServiceError> {
-        let mut conn = self.pool.acquire().await?;
-        let identity = Identity::create(node_id, profile.id.to_owned(), &mut *conn).await?;
-        Ok(identity)
-    }
+// #[derive(Clone, Debug)]
+// pub struct IdentitiesService {
+//     pool: Pool<Any>,
+// }
 
-    pub async fn _list_profiles(
-        &self,
-        node_id: PublicKey,
-    ) -> Result<Vec<Profile>, IdentitiesServiceError> {
-        let mut conn = self.pool.acquire().await?;
+// impl IdentitiesService {
+//     pub async fn create(
+//         &self,
+//         node_id: PublicKey,
+//         profile: &Profile,
+//     ) -> Result<Identity, IdentitiesServiceError> {
+//         let mut conn = self.pool.acquire().await?;
+//         let identity = Identity::create(node_id, profile.id.to_owned(), &mut *conn).await?;
+//         Ok(identity)
+//     }
 
-        let identities = Identity::list_for_node_id(&node_id, &mut conn).await?;
+//     pub async fn _list_profiles(
+//         &self,
+//         node_id: PublicKey,
+//     ) -> Result<Vec<Profile>, IdentitiesServiceError> {
+//         let mut conn = self.pool.acquire().await?;
 
-        let mut profiles = vec![];
+//         let identities = Identity::list_for_node_id(&node_id, &mut conn).await?;
 
-        // really inefficent but whatever for now
-        for identity in identities {
-            if let Ok(Some(profile)) = Profile::by_id(&identity.profile_id, &mut conn).await {
-                profiles.push(profile);
-            }
-        }
+//         let mut profiles = vec![];
 
-        Ok(profiles)
-    }
-}
+//         // really inefficent but whatever for now
+//         for identity in identities {
+//             if let Ok(Some(profile)) = Profile::by_id(&identity.profile_id, &mut conn).await {
+//                 profiles.push(profile);
+//             }
+//         }
 
-#[zel_service(name = "identity")]
-trait Identities {
-    #[method(name = "list_profiles")]
-    async fn list_profiles(&self) -> Result<Vec<Profile>, ResourceError>;
-}
+//         Ok(profiles)
+//     }
+// }
 
-#[async_trait]
-impl IdentitiesServer for IdentitiesService {
-    async fn list_profiles(&self, ctx: RequestContext) -> Result<Vec<Profile>, ResourceError> {
-        let remote_id = ctx.connection().remote_id();
-        Ok(self._list_profiles(remote_id).await?)
-    }
-}
+// #[zel_service(name = "identity")]
+// trait Identities {
+//     #[method(name = "list_profiles")]
+//     async fn list_profiles(&self) -> Result<Vec<Profile>, ResourceError>;
+// }
+
+// #[async_trait]
+// impl IdentitiesServer for IdentitiesService {
+//     async fn list_profiles(&self, ctx: RequestContext) -> Result<Vec<Profile>, ResourceError> {
+//         let remote_id = ctx.connection().remote_id();
+//         Ok(self._list_profiles(remote_id).await?)
+//     }
+// }

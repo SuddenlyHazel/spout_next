@@ -60,10 +60,27 @@ impl ProfilesService {
         txn.commit().await?;
         Ok(profile)
     }
+
+    pub async fn _list_profiles(
+        &self,
+        node_id: PublicKey,
+    ) -> Result<Vec<Profile>, ProfilesServiceError> {
+        let mut conn = self.pool.acquire().await?;
+        let mut profiles = vec![];
+        let identites = Identity::list_for_node_id(&node_id, &mut conn).await?;
+
+        for identity in identites {
+            if let Some(profile) = Profile::by_id(&identity.profile_id, &mut conn).await? {
+                profiles.push(profile);
+            }
+        }
+        Ok(profiles)
+    }
 }
 
 #[zel_service(name = "profile")]
 trait Profiles {
+    #[doc = "Create a profile given current identity of the calling peer"]
     #[method(name = "create_profile")]
     async fn create_profile(
         &self,
@@ -71,6 +88,10 @@ trait Profiles {
         desc: String,
         picture: Option<Vec<u8>>,
     ) -> Result<Profile, ResourceError>;
+
+    #[doc = "List all profiles associated with the identity of the calling peer"]
+    #[method(name = "list_profiles")]
+    async fn list_profiles(&self) -> Result<Vec<Profile>, ResourceError>;
 }
 
 #[async_trait]
@@ -82,8 +103,12 @@ impl ProfilesServer for ProfilesService {
         desc: String,
         picture: Option<Vec<u8>>,
     ) -> Result<Profile, ResourceError> {
-        let node_id = ctx.connection().remote_id();
-        let profile = self._create_profile(node_id, name, desc, picture).await?;
-        Ok(profile)
+        Ok(self
+            ._create_profile(ctx.remote_id(), name, desc, picture)
+            .await?)
+    }
+
+    async fn list_profiles(&self, ctx: RequestContext) -> Result<Vec<Profile>, ResourceError> {
+        Ok(self._list_profiles(ctx.remote_id()).await?)
     }
 }
