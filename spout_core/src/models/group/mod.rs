@@ -1,3 +1,5 @@
+pub mod post;
+pub mod topic;
 pub mod user;
 
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,10 @@ use sqlx::{pool::PoolConnection, prelude::*, Any, AnyPool};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::error::MigrationError;
+use crate::{
+    error::MigrationError,
+    ids::{GroupId, ProfileId},
+};
 
 #[derive(Debug, Error)]
 pub enum GroupError {
@@ -17,8 +22,10 @@ pub enum GroupError {
 
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct Group {
-    pub id: Uuid,
-    pub profile_id: Uuid,
+    #[sqlx(try_from = "String")]
+    pub id: GroupId,
+    #[sqlx(try_from = "String")]
+    pub profile_id: ProfileId,
     #[sqlx(skip)]
     pub admin_identities: Vec<Uuid>,
     #[sqlx(skip)]
@@ -28,11 +35,11 @@ pub struct Group {
 }
 
 impl Group {
-    pub async fn create<'a, E>(profile_id: Uuid, conn: E) -> Result<Group, GroupError>
+    pub async fn create<'a, E>(profile_id: ProfileId, conn: E) -> Result<Group, GroupError>
     where
         E: Executor<'a, Database = Any>,
     {
-        let id = Uuid::now_v7();
+        let id = GroupId::new();
 
         sqlx::query(
             r#"
@@ -55,7 +62,7 @@ impl Group {
     }
 
     pub async fn by_id(
-        id: &Uuid,
+        id: &GroupId,
         conn: &mut PoolConnection<Any>,
     ) -> Result<Option<Group>, GroupError> {
         let row = sqlx::query(
@@ -72,9 +79,10 @@ impl Group {
         let group = match row {
             Some(row) => {
                 let id_str: String = row.try_get("id")?;
-                let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                let id =
+                    GroupId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
                 let profile_id_str: String = row.try_get("profile_id")?;
-                let profile_id = Uuid::parse_str(&profile_id_str)
+                let profile_id = ProfileId::parse_str(&profile_id_str)
                     .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
                 // Load admin identities
@@ -140,7 +148,7 @@ impl Group {
     }
 
     pub async fn add_admin<'a, E>(
-        group_id: Uuid,
+        group_id: GroupId,
         identity_id: Uuid,
         conn: E,
     ) -> Result<(), GroupError>
@@ -162,7 +170,7 @@ impl Group {
     }
 
     pub async fn remove_admin<'a, E>(
-        group_id: Uuid,
+        group_id: GroupId,
         identity_id: Uuid,
         conn: E,
     ) -> Result<(), GroupError>
@@ -184,7 +192,7 @@ impl Group {
     }
 
     pub async fn add_banned<'a, E>(
-        group_id: Uuid,
+        group_id: GroupId,
         identity_id: Uuid,
         conn: E,
     ) -> Result<(), GroupError>
@@ -206,7 +214,7 @@ impl Group {
     }
 
     pub async fn remove_banned<'a, E>(
-        group_id: Uuid,
+        group_id: GroupId,
         identity_id: Uuid,
         conn: E,
     ) -> Result<(), GroupError>
@@ -247,10 +255,10 @@ impl Group {
         let mut groups = Vec::new();
         for row in rows {
             let id_str: String = row.try_get("id")?;
-            let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let id = GroupId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
             let profile_id_str: String = row.try_get("profile_id")?;
-            let profile_id =
-                Uuid::parse_str(&profile_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let profile_id = ProfileId::parse_str(&profile_id_str)
+                .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
             // Load admin identities
             let admin_rows = sqlx::query(
@@ -319,6 +327,8 @@ pub async fn migrate_up(conn: AnyPool) -> Result<(), MigrationError> {
     migrations::create_group_admins_table(&mut conn).await?;
     migrations::create_group_banned_table(&mut conn).await?;
     migrations::create_group_users_table(&mut conn).await?;
+    migrations::create_group_topics_table(&mut conn).await?;
+    migrations::create_group_posts_table(&mut conn).await?;
 
     Ok(())
 }
@@ -437,6 +447,94 @@ mod migrations {
 
         Ok(())
     }
+
+    pub async fn create_group_topics_table(
+        conn: &mut PoolConnection<Any>,
+    ) -> Result<(), MigrationError> {
+        sqlx::query(
+            r#"
+      CREATE TABLE IF NOT EXISTS group_topics (
+        id TEXT PRIMARY KEY NOT NULL,
+        group_id TEXT NOT NULL,
+        profile_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_topics_group_id ON group_topics(group_id)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_topics_profile_id ON group_topics(profile_id)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_topics_created_at ON group_topics(created_at)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn create_group_posts_table(
+        conn: &mut PoolConnection<Any>,
+    ) -> Result<(), MigrationError> {
+        sqlx::query(
+            r#"
+      CREATE TABLE IF NOT EXISTS group_posts (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        topic_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_posts_topic_id ON group_posts(topic_id)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_posts_user_id ON group_posts(user_id)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+      CREATE INDEX IF NOT EXISTS idx_group_posts_created_at ON group_posts(created_at)
+      "#,
+        )
+        .execute(&mut **conn)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -450,7 +548,7 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let profile_id = Uuid::now_v7();
+        let profile_id = ProfileId::new();
         let identity_id1 = Uuid::now_v7();
         let identity_id2 = Uuid::now_v7();
 
@@ -496,7 +594,7 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let profile_id = Uuid::now_v7();
+        let profile_id = ProfileId::new();
         let identity_id1 = Uuid::now_v7();
         let identity_id2 = Uuid::now_v7();
 
@@ -532,8 +630,8 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let profile_id1 = Uuid::now_v7();
-        let profile_id2 = Uuid::now_v7();
+        let profile_id1 = ProfileId::new();
+        let profile_id2 = ProfileId::new();
         let identity_id = Uuid::now_v7();
 
         // Create two groups
@@ -583,9 +681,9 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let profile_id = Uuid::now_v7();
-        let user_profile1 = Uuid::now_v7();
-        let user_profile2 = Uuid::now_v7();
+        let profile_id = ProfileId::new();
+        let user_profile1 = ProfileId::new();
+        let user_profile2 = ProfileId::new();
 
         // Create a group
         let group = Group::create(profile_id, &mut *conn).await.unwrap();

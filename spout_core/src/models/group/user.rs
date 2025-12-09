@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{pool::PoolConnection, prelude::*, Any};
 use thiserror::Error;
-use uuid::Uuid;
+
+use crate::ids::{GroupId, ProfileId, UserId};
 
 #[derive(Debug, Error)]
 pub enum UserError {
@@ -13,17 +14,24 @@ pub enum UserError {
 
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct User {
-    pub id: Uuid,
-    pub group_id: Uuid,
-    pub profile_id: Uuid,
+    #[sqlx(try_from = "String")]
+    pub id: UserId,
+    #[sqlx(try_from = "String")]
+    pub group_id: GroupId,
+    #[sqlx(try_from = "String")]
+    pub profile_id: ProfileId,
 }
 
 impl User {
-    pub async fn add<'a, E>(group_id: Uuid, profile_id: Uuid, conn: E) -> Result<User, UserError>
+    pub async fn add<'a, E>(
+        group_id: GroupId,
+        profile_id: ProfileId,
+        conn: E,
+    ) -> Result<User, UserError>
     where
         E: Executor<'a, Database = Any>,
     {
-        let id = Uuid::now_v7();
+        let id = UserId::new();
 
         sqlx::query(
             r#"
@@ -44,7 +52,11 @@ impl User {
         })
     }
 
-    pub async fn remove<'a, E>(group_id: Uuid, profile_id: Uuid, conn: E) -> Result<(), UserError>
+    pub async fn remove<'a, E>(
+        group_id: GroupId,
+        profile_id: ProfileId,
+        conn: E,
+    ) -> Result<(), UserError>
     where
         E: Executor<'a, Database = Any>,
     {
@@ -63,7 +75,7 @@ impl User {
     }
 
     pub async fn list_for_group(
-        group_id: &Uuid,
+        group_id: &GroupId,
         conn: &mut PoolConnection<Any>,
     ) -> Result<Vec<User>, UserError> {
         let rows = sqlx::query(
@@ -80,13 +92,13 @@ impl User {
         let mut users = Vec::new();
         for row in rows {
             let id_str: String = row.try_get("id")?;
-            let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let id = UserId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
             let group_id_str: String = row.try_get("group_id")?;
             let group_id =
-                Uuid::parse_str(&group_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                GroupId::parse_str(&group_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
             let profile_id_str: String = row.try_get("profile_id")?;
-            let profile_id =
-                Uuid::parse_str(&profile_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let profile_id = ProfileId::parse_str(&profile_id_str)
+                .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
             users.push(User {
                 id,
@@ -99,7 +111,7 @@ impl User {
     }
 
     pub async fn list_for_profile(
-        profile_id: &Uuid,
+        profile_id: &ProfileId,
         conn: &mut PoolConnection<Any>,
     ) -> Result<Vec<User>, UserError> {
         let rows = sqlx::query(
@@ -116,13 +128,13 @@ impl User {
         let mut users = Vec::new();
         for row in rows {
             let id_str: String = row.try_get("id")?;
-            let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let id = UserId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
             let group_id_str: String = row.try_get("group_id")?;
             let group_id =
-                Uuid::parse_str(&group_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                GroupId::parse_str(&group_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
             let profile_id_str: String = row.try_get("profile_id")?;
-            let profile_id =
-                Uuid::parse_str(&profile_id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            let profile_id = ProfileId::parse_str(&profile_id_str)
+                .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
             users.push(User {
                 id,
@@ -146,9 +158,9 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let group_id = Uuid::now_v7();
-        let profile_id1 = Uuid::now_v7();
-        let profile_id2 = Uuid::now_v7();
+        let group_id = GroupId::new();
+        let profile_id1 = ProfileId::new();
+        let profile_id2 = ProfileId::new();
 
         // Add users
         let user1 = User::add(group_id, profile_id1, &mut *conn).await.unwrap();
@@ -182,9 +194,9 @@ mod test {
         let pool = test_utils::create_test_db_with_migrations().await;
         let mut conn = pool.acquire().await.unwrap();
 
-        let group_id1 = Uuid::now_v7();
-        let group_id2 = Uuid::now_v7();
-        let profile_id = Uuid::now_v7();
+        let group_id1 = GroupId::new();
+        let group_id2 = GroupId::new();
+        let profile_id = ProfileId::new();
 
         // Add profile to multiple groups
         User::add(group_id1, profile_id, &mut *conn).await.unwrap();
@@ -199,7 +211,7 @@ mod test {
         assert!(users.iter().any(|u| u.group_id == group_id2));
 
         // Test empty result
-        let other_profile = Uuid::now_v7();
+        let other_profile = ProfileId::new();
         let empty = User::list_for_profile(&other_profile, &mut conn)
             .await
             .unwrap();

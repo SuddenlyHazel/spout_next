@@ -53,7 +53,7 @@ impl ProfilesService {
 
         let profile = {
             let profile = Profile::create(name, desc, picture, &mut *txn).await?;
-            let _ = Identity::create(node_id, profile.id.clone(), &mut *txn).await?;
+            let _ = Identity::create(node_id, profile.id, &mut *txn).await?;
             profile
         };
 

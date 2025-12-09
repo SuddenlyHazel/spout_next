@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{pool::PoolConnection, prelude::*, Any, AnyPool};
 use thiserror::Error;
-use uuid::Uuid;
 
-use crate::{error::MigrationError, profile::migrations::create_profiles_table};
+use crate::{error::MigrationError, ids::ProfileId, profile::migrations::create_profiles_table};
 
 #[derive(Debug, Error)]
 pub enum ProfileError {
@@ -13,7 +12,8 @@ pub enum ProfileError {
 
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct Profile {
-    pub id: Uuid,
+    #[sqlx(try_from = "String")]
+    pub id: ProfileId,
     pub name: String,
     pub desc: String,
     pub picture: Option<Vec<u8>>,
@@ -29,7 +29,7 @@ impl Profile {
     where
         E: Executor<'a, Database = Any>,
     {
-        let id = Uuid::now_v7();
+        let id = ProfileId::new();
 
         sqlx::query(
             r#"
@@ -53,7 +53,7 @@ impl Profile {
     }
 
     pub async fn by_id(
-        id: &Uuid,
+        id: &ProfileId,
         conn: &mut PoolConnection<Any>,
     ) -> Result<Option<Profile>, ProfileError> {
         let row = sqlx::query(
@@ -70,7 +70,8 @@ impl Profile {
         let profile = match row {
             Some(row) => {
                 let id_str: String = row.try_get("id")?;
-                let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                let id =
+                    ProfileId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
                 let name: String = row.try_get("name")?;
                 let desc: String = row.try_get("desc")?;
                 let picture: Option<Vec<u8>> = row.try_get("picture")?;
@@ -106,7 +107,8 @@ impl Profile {
         let profile = match row {
             Some(row) => {
                 let id_str: String = row.try_get("id")?;
-                let id = Uuid::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                let id =
+                    ProfileId::parse_str(&id_str).map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
                 let name: String = row.try_get("name")?;
                 let desc: String = row.try_get("desc")?;
                 let picture: Option<Vec<u8>> = row.try_get("picture")?;
@@ -220,7 +222,7 @@ mod test {
         assert_eq!(retrieved_profile.picture, test_picture);
 
         // Test retrieving a non-existent profile
-        let non_existent_id = Uuid::now_v7();
+        let non_existent_id = ProfileId::new();
         let non_existent_profile = Profile::by_id(&non_existent_id, &mut conn).await.unwrap();
         assert!(non_existent_profile.is_none());
     }

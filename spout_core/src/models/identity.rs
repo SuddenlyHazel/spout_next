@@ -2,9 +2,8 @@ use iroh::PublicKey;
 use serde::{Deserialize, Serialize};
 use sqlx::{pool::PoolConnection, prelude::*, Any, AnyPool};
 use thiserror::Error;
-use uuid::Uuid;
 
-use crate::{error::MigrationError, identity::migrations::create_identities_table};
+use crate::{error::MigrationError, identity::migrations::create_identities_table, ids::ProfileId};
 
 #[derive(Debug, Error)]
 pub enum IdentityError {
@@ -19,13 +18,14 @@ pub enum IdentityError {
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct Identity {
     pub node_id: PublicKey,
-    pub profile_id: Uuid,
+    #[sqlx(try_from = "String")]
+    pub profile_id: ProfileId,
 }
 
 impl Identity {
     pub async fn create<'a, E>(
         node_id: PublicKey,
-        profile_id: Uuid,
+        profile_id: ProfileId,
         conn: E,
     ) -> Result<Identity, IdentityError>
     where
@@ -82,7 +82,7 @@ impl Identity {
             let node_id = PublicKey::from_bytes(&node_id_arr)?;
 
             let profile_id_str: String = row.try_get("profile_id")?;
-            let profile_id = Uuid::parse_str(&profile_id_str)?;
+            let profile_id = ProfileId::parse_str(&profile_id_str)?;
 
             identities.push(Identity {
                 node_id,
@@ -140,8 +140,8 @@ mod test {
 
         let node_id = SecretKey::generate(&mut rand::rng());
         let node_id = node_id.public();
-        let profile_id1 = Uuid::now_v7();
-        let profile_id2 = Uuid::now_v7();
+        let profile_id1 = ProfileId::new();
+        let profile_id2 = ProfileId::new();
 
         // Create first identity
         let first_identity = Identity::create(node_id, profile_id1, &mut *conn)
