@@ -27,8 +27,9 @@ impl Identity {
         node_id: PublicKey,
         profile_id: Uuid,
         conn: E,
-    ) -> Result<Identity, IdentityError> 
-    where E : Executor<'a, Database = Any>
+    ) -> Result<Identity, IdentityError>
+    where
+        E: Executor<'a, Database = Any>,
     {
         sqlx::query(
             r#"
@@ -66,9 +67,18 @@ impl Identity {
         for row in rows {
             let node_id_bytes: Vec<u8> = row.try_get("node_id")?;
             if node_id_bytes.len() != 32 {
-                return Err(sqlx::Error::Decode(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid node_id length"))).into());
+                return Err(sqlx::Error::Decode(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Invalid node_id length",
+                )))
+                .into());
             }
-            let node_id_arr: [u8; 32] = node_id_bytes.try_into().map_err(|_| sqlx::Error::Decode(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid node_id"))))?;
+            let node_id_arr: [u8; 32] = node_id_bytes.try_into().map_err(|_| {
+                sqlx::Error::Decode(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Invalid node_id",
+                )))
+            })?;
             let node_id = PublicKey::from_bytes(&node_id_arr)?;
 
             let profile_id_str: String = row.try_get("profile_id")?;
@@ -119,8 +129,8 @@ mod migrations {
 mod test {
     use iroh::SecretKey;
 
-    use crate::test_utils;
     use super::*;
+    use crate::test_utils;
 
     #[tokio::test]
     async fn creates_and_lists_identities() {
@@ -134,25 +144,17 @@ mod test {
         let profile_id2 = Uuid::now_v7();
 
         // Create first identity
-        let first_identity = Identity::create(
-            node_id,
-            profile_id1,
-            &mut *conn,
-        )
-        .await
-        .unwrap();
+        let first_identity = Identity::create(node_id, profile_id1, &mut *conn)
+            .await
+            .unwrap();
 
         assert_eq!(first_identity.node_id, node_id);
         assert_eq!(first_identity.profile_id, profile_id1);
 
         // Create second identity for same node
-        let second_identity = Identity::create(
-            node_id,
-            profile_id2,
-            &mut *conn,
-        )
-        .await
-        .unwrap();
+        let second_identity = Identity::create(node_id, profile_id2, &mut *conn)
+            .await
+            .unwrap();
 
         assert_eq!(second_identity.node_id, node_id);
         assert_eq!(second_identity.profile_id, profile_id2);
@@ -163,17 +165,16 @@ mod test {
             .unwrap();
 
         assert_eq!(identities.len(), 2);
-        assert!(identities.iter().any(|i| i.profile_id == first_identity.profile_id));
-        assert!(identities.iter().any(|i| i.profile_id == second_identity.profile_id));
+        assert!(identities
+            .iter()
+            .any(|i| i.profile_id == first_identity.profile_id));
+        assert!(identities
+            .iter()
+            .any(|i| i.profile_id == second_identity.profile_id));
         assert!(identities.iter().all(|i| i.node_id == node_id));
 
         // Try to create duplicate (same node_id + profile_id)
-        let result = Identity::create(
-            node_id,
-            profile_id1,
-            &mut *conn,
-        )
-        .await;
+        let result = Identity::create(node_id, profile_id1, &mut *conn).await;
 
         assert!(result.is_err());
         match result {

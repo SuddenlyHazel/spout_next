@@ -25,8 +25,9 @@ impl Profile {
         desc: String,
         picture: Option<Vec<u8>>,
         conn: E,
-    ) -> Result<Profile, ProfileError> 
-    where E : Executor<'a, Database = Any>
+    ) -> Result<Profile, ProfileError>
+    where
+        E: Executor<'a, Database = Any>,
     {
         let id = Uuid::now_v7();
 
@@ -233,23 +234,16 @@ mod test {
         // Create a profile with a specific name
         let name = "UniqueUser".to_string();
         let desc = "First profile".to_string();
-        
-        let first_profile = Profile::create(
-            name.clone(),
-            desc.clone(),
-            None,
-            &mut *conn,
-        )
-        .await
-        .unwrap();
+
+        let first_profile = Profile::create(name.clone(), desc.clone(), None, &mut *conn)
+            .await
+            .unwrap();
 
         assert_eq!(first_profile.name, name);
 
         // Verify we can retrieve the profile by name
-        let retrieved_by_name = Profile::by_name(&name, &mut conn)
-            .await
-            .unwrap();
-        
+        let retrieved_by_name = Profile::by_name(&name, &mut conn).await.unwrap();
+
         assert!(retrieved_by_name.is_some());
         let retrieved_by_name = retrieved_by_name.unwrap();
         assert_eq!(retrieved_by_name.id, first_profile.id);
@@ -257,17 +251,12 @@ mod test {
         assert_eq!(retrieved_by_name.desc, desc);
 
         // Try to create another profile with the same name
-        let result = Profile::create(
-            name.clone(),
-            "Second profile".to_string(),
-            None,
-            &mut *conn,
-        )
-        .await;
+        let result =
+            Profile::create(name.clone(), "Second profile".to_string(), None, &mut *conn).await;
 
         // This should fail due to unique constraint on name
         assert!(result.is_err());
-        
+
         // Verify it's a database error
         match result {
             Err(ProfileError::DatabaseError(_)) => {
@@ -277,10 +266,7 @@ mod test {
         }
 
         // Verify we still only have one profile with that name
-        let still_first = Profile::by_name(&name, &mut conn)
-            .await
-            .unwrap()
-            .unwrap();
+        let still_first = Profile::by_name(&name, &mut conn).await.unwrap().unwrap();
         assert_eq!(still_first.id, first_profile.id);
         assert_eq!(still_first.desc, desc); // Should still be the first profile's description
 

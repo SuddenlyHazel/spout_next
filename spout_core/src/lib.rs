@@ -1,5 +1,5 @@
 pub mod models;
-pub use models::{profile, identity};
+pub use models::{identity, profile};
 
 pub mod service;
 

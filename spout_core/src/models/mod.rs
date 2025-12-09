@@ -2,4 +2,4 @@ pub mod identity;
 pub mod profile;
 
 // Remember to update test_utils::create_test_db_with_migrations
-// with migrations or youre gonna have a bad time 
+// with migrations or youre gonna have a bad time

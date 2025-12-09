@@ -1,2 +1,2 @@
-pub mod profiles;
 pub mod identities;
+pub mod profiles;

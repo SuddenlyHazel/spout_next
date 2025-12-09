@@ -16,13 +16,15 @@ pub enum IdentitiesServiceError {
     Application(#[from] identity::IdentityError),
 }
 
-// TODO : need to actually dig into each error type 
+// TODO : need to actually dig into each error type
 // and correctly flag
 impl From<IdentitiesServiceError> for ResourceError {
     fn from(error: IdentitiesServiceError) -> Self {
         match error {
             IdentitiesServiceError::DbError(error) => ResourceError::infra(error),
-            IdentitiesServiceError::Application(identity_error) => ResourceError::app(identity_error),
+            IdentitiesServiceError::Application(identity_error) => {
+                ResourceError::app(identity_error)
+            }
         }
     }
 }

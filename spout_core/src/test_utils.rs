@@ -8,11 +8,11 @@ pub fn init_test_drivers() {
 
 /// Create a new in-memory SQLite database pool for testing.
 /// Each call creates a fresh, isolated database instance.
-/// 
+///
 /// # Example
 /// ```
 /// use spout_core::test_utils;
-/// 
+///
 /// #[tokio::test]
 /// async fn my_test() {
 ///     test_utils::init_test_drivers();
@@ -29,11 +29,11 @@ pub async fn create_test_db() -> AnyPool {
 
 /// Create a new in-memory SQLite database pool with migrations already applied.
 /// This is a convenience function for tests that need a fully set up database.
-/// 
+///
 /// # Example
 /// ```
 /// use spout_core::test_utils;
-/// 
+///
 /// #[tokio::test]
 /// async fn my_test() {
 ///     test_utils::init_test_drivers();
@@ -43,15 +43,15 @@ pub async fn create_test_db() -> AnyPool {
 /// ```
 pub async fn create_test_db_with_migrations() -> AnyPool {
     let pool = create_test_db().await;
-    
+
     // Run all migrations
     crate::profile::migrate_up(pool.clone())
         .await
         .expect("Failed to run profile migrations");
-    
+
     crate::identity::migrate_up(pool.clone())
         .await
         .expect("Failed to run identity migrations");
-    
+
     pool
 }
