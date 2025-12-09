@@ -20,12 +20,14 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub async fn create(
+    pub async fn create<'a, E>(
         name: String,
         desc: String,
         picture: Option<Vec<u8>>,
-        conn: &mut PoolConnection<Any>,
-    ) -> Result<Profile, ProfileError> {
+        conn: E,
+    ) -> Result<Profile, ProfileError> 
+    where E : Executor<'a, Database = Any>
+    {
         let id = Uuid::now_v7();
 
         sqlx::query(
@@ -38,7 +40,7 @@ impl Profile {
         .bind(&name)
         .bind(&desc)
         .bind(&picture)
-        .execute(&mut **conn)
+        .execute(conn)
         .await?;
 
         Ok(Profile {
@@ -191,7 +193,7 @@ mod test {
             test_name.clone(),
             test_desc.clone(),
             test_picture.clone(),
-            &mut conn,
+            &mut *conn,
         )
         .await
         .unwrap();
@@ -236,7 +238,7 @@ mod test {
             name.clone(),
             desc.clone(),
             None,
-            &mut conn,
+            &mut *conn,
         )
         .await
         .unwrap();
@@ -259,7 +261,7 @@ mod test {
             name.clone(),
             "Second profile".to_string(),
             None,
-            &mut conn,
+            &mut *conn,
         )
         .await;
 

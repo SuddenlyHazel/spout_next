@@ -23,11 +23,13 @@ pub struct Identity {
 }
 
 impl Identity {
-    pub async fn create(
+    pub async fn create<'a, E>(
         node_id: PublicKey,
         profile_id: Uuid,
-        conn: &mut PoolConnection<Any>,
-    ) -> Result<Identity, IdentityError> {
+        conn: E,
+    ) -> Result<Identity, IdentityError> 
+    where E : Executor<'a, Database = Any>
+    {
         sqlx::query(
             r#"
       INSERT INTO identities (node_id, profile_id)
@@ -36,7 +38,7 @@ impl Identity {
         )
         .bind(node_id.as_bytes().to_vec())
         .bind(profile_id.to_string())
-        .execute(&mut **conn)
+        .execute(conn)
         .await?;
 
         Ok(Identity {
@@ -135,7 +137,7 @@ mod test {
         let first_identity = Identity::create(
             node_id,
             profile_id1,
-            &mut conn,
+            &mut *conn,
         )
         .await
         .unwrap();
@@ -147,7 +149,7 @@ mod test {
         let second_identity = Identity::create(
             node_id,
             profile_id2,
-            &mut conn,
+            &mut *conn,
         )
         .await
         .unwrap();
@@ -169,7 +171,7 @@ mod test {
         let result = Identity::create(
             node_id,
             profile_id1,
-            &mut conn,
+            &mut *conn,
         )
         .await;
 

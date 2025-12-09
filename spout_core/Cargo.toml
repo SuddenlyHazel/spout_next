@@ -10,7 +10,6 @@ tokio.workspace = true
 
 iroh.workspace = true
 zel_core.workspace = true
-zel_macros.workspace = true
 async-trait.workspace = true
 rand.workspace = true
 
