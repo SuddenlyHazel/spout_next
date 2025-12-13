@@ -22,3 +22,7 @@ thiserror.workspace = true
 sqlx.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+
+dirs.workspace = true
+sea-orm.workspace = true
+sea-orm-migration.workspace = true

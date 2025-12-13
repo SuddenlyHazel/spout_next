@@ -1,3 +1,7 @@
+use sea_orm::{
+    sea_query::{ArrayType, Nullable, ValueType, ValueTypeErr},
+    DbErr, QueryResult, TryFromU64, TryGetError, TryGetable, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
@@ -85,6 +89,56 @@ macro_rules! define_id {
 
             fn try_from(s: &'a str) -> Result<Self, Self::Error> {
                 Ok(Self(Uuid::parse_str(s)?))
+            }
+        }
+
+        // SeaORM trait implementations
+        impl From<$name> for Value {
+            fn from(id: $name) -> Self {
+                Value::Uuid(Some(Box::new(id.0)))
+            }
+        }
+
+        impl TryGetable for $name {
+            fn try_get_by<I: sea_orm::ColIdx>(
+                res: &QueryResult,
+                idx: I,
+            ) -> Result<Self, TryGetError> {
+                let uuid: Uuid = res.try_get_by(idx).map_err(TryGetError::DbErr)?;
+                Ok(Self(uuid))
+            }
+        }
+
+        impl ValueType for $name {
+            fn try_from(v: Value) -> Result<Self, ValueTypeErr> {
+                match v {
+                    Value::Uuid(Some(uuid)) => Ok(Self(*uuid)),
+                    _ => Err(ValueTypeErr),
+                }
+            }
+
+            fn type_name() -> String {
+                stringify!($name).to_owned()
+            }
+
+            fn array_type() -> ArrayType {
+                ArrayType::Uuid
+            }
+
+            fn column_type() -> sea_orm::ColumnType {
+                sea_orm::ColumnType::Uuid
+            }
+        }
+
+        impl Nullable for $name {
+            fn null() -> Value {
+                Value::Uuid(None)
+            }
+        }
+
+        impl TryFromU64 for $name {
+            fn try_from_u64(_: u64) -> Result<Self, DbErr> {
+                Err(DbErr::ConvertFromU64(stringify!($name)))
             }
         }
     };

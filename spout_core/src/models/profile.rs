@@ -10,7 +10,7 @@ pub enum ProfileError {
     DatabaseError(#[from] sqlx::Error),
 }
 
-#[derive(Serialize, Deserialize, FromRow)]
+#[derive(Serialize, Deserialize, FromRow, Debug, Clone, PartialEq, Eq)]
 pub struct Profile {
     #[sqlx(try_from = "String")]
     pub id: ProfileId,

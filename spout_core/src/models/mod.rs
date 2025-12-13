@@ -1,5 +1,24 @@
-pub mod identity;
-pub mod profile;
+use sea_orm::{Database, DatabaseConnection, SqlxSqlitePoolConnection};
+use sea_orm_migration::MigratorTrait;
+
+use crate::config::SpoutConfig;
+
 pub mod group;
-// Remember to update test_utils::create_test_db_with_migrations
-// with migrations or youre gonna have a bad time
+pub mod identity;
+pub mod migrator;
+pub mod profile;
+
+pub async fn open_or_create_db(config: &SpoutConfig) -> DatabaseConnection {
+    // Use display() to convert PathBuf to string representation
+    let connection_string = format!("sqlite://{}?mode=rwc", config.database_path.display());
+
+    Database::connect(&connection_string)
+        .await
+        .expect("Failed to connect to database")
+}
+
+pub async fn migrate_up(db: DatabaseConnection) {
+    migrator::Migrator::up(&db, None)
+        .await
+        .expect("Failed to run migrations");
+}
