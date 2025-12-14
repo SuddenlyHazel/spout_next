@@ -9,6 +9,7 @@ pub struct Model {
     pub id: PostId,
     pub user_id: UserId,
     pub topic_id: TopicId,
+    pub parent_post_id: Option<PostId>,  // NEW: NULL for top-level posts
     pub title: String,
     pub body: String,
     pub created_at: String,

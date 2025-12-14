@@ -1,14 +1,12 @@
 use thiserror::Error;
 use zel_core::prelude::*;
 
-use crate::identity::{self};
-
 #[derive(Debug, Error)]
 pub enum IdentitiesServiceError {
     #[error("fatal database error")]
     DbError(#[from] sqlx::Error),
-    #[error(transparent)]
-    Application(#[from] identity::IdentityError),
+    // #[error(transparent)]
+    // Application(#[from] IdentityError),
 }
 
 // TODO : need to actually dig into each error type
@@ -17,9 +15,9 @@ impl From<IdentitiesServiceError> for ResourceError {
     fn from(error: IdentitiesServiceError) -> Self {
         match error {
             IdentitiesServiceError::DbError(error) => ResourceError::infra(error),
-            IdentitiesServiceError::Application(identity_error) => {
-                ResourceError::app(identity_error)
-            }
+            // IdentitiesServiceError::Application(identity_error) => {
+            //     ResourceError::app(identity_error)
+            // }
         }
     }
 }

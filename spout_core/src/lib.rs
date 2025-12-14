@@ -1,7 +1,6 @@
 pub mod entity;
 pub mod ids;
 pub mod models;
-pub use models::{group, identity, profile};
 use tokio::sync::OnceCell;
 
 use std::{sync::Arc, time::Duration};
@@ -16,9 +15,6 @@ pub mod service;
 pub mod error;
 
 pub mod config;
-
-#[cfg(test)]
-pub mod test_utils;
 
 static SPOUT_CORE: OnceCell<Arc<SpoutCore>> = OnceCell::const_new();
 static ALPN: &[u8] = b"spout::0.1.0";
@@ -47,7 +43,7 @@ pub struct SpoutCore {
 impl SpoutCore {
     pub async fn start() -> Result<Self, Box<dyn std::error::Error>> {
         let config = config::get_or_init().await?;
-
+        println!("{config:?}");
         // ----------------
         // Server endpoint
         // ----------------
@@ -116,8 +112,8 @@ impl SpoutCore {
 
 pub mod prelude {
     pub use super::ids;
+    pub use super::entity;
     pub use super::models;
-    pub use models::{group, identity, profile};
 
     pub use super::service;
 

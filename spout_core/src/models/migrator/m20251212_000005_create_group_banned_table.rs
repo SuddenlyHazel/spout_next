@@ -1,12 +1,9 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::*, schema::*};
 
+use super::m20251212_000003_create_groups_table::Group;
+
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20251212_000005_create_group_banned_table"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -15,8 +12,8 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(GroupBanned::Table)
-                    .col(ColumnDef::new(GroupBanned::GroupId).string().not_null())
-                    .col(ColumnDef::new(GroupBanned::IdentityId).string().not_null())
+                    .col(uuid(GroupBanned::GroupId))
+                    .col(uuid(GroupBanned::IdentityId))
                     .primary_key(
                         Index::create()
                             .col(GroupBanned::GroupId)
@@ -24,7 +21,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_banned_group_id")
+                            .name("fk-group-banned-group_id")
                             .from(GroupBanned::Table, GroupBanned::GroupId)
                             .to(Group::Table, Group::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -53,15 +50,9 @@ impl MigrationTrait for Migration {
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 pub enum GroupBanned {
     Table,
     GroupId,
     IdentityId,
-}
-
-#[derive(Iden)]
-enum Group {
-    Table,
-    Id,
 }

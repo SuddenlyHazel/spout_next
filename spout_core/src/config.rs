@@ -21,7 +21,7 @@ fn default_secret_key() -> SecretKey {
     SecretKey::generate(&mut rand::rng())
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SpoutConfig {
     /// Secret key for the local node/instance.
     #[serde(default = "default_secret_key")]

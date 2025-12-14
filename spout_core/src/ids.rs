@@ -1,7 +1,5 @@
-use sea_orm::{
-    sea_query::{ArrayType, Nullable, ValueType, ValueTypeErr},
-    DbErr, QueryResult, TryFromU64, TryGetError, TryGetable, Value,
-};
+use sea_orm::{ColIdx, DbErr, QueryResult, TryFromU64, TryGetError, TryGetable, Value};
+use sea_orm::sea_query::{ArrayType, ColumnType, Nullable, ValueType, ValueTypeErr};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
@@ -10,7 +8,7 @@ macro_rules! define_id {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
         #[serde(transparent)]
-        pub struct $name(Uuid);
+        pub struct $name(pub Uuid);
 
         impl $name {
             pub fn new() -> Self {
@@ -27,10 +25,6 @@ macro_rules! define_id {
 
             pub fn into_uuid(self) -> Uuid {
                 self.0
-            }
-
-            pub fn to_string(&self) -> String {
-                self.0.to_string()
             }
 
             pub fn parse_str(s: &str) -> Result<Self, uuid::Error> {
@@ -92,27 +86,35 @@ macro_rules! define_id {
             }
         }
 
-        // SeaORM trait implementations
+        // === Required SeaORM Trait Implementations ===
+
+        /// Implement TryGetable to read from database
+        impl TryGetable for $name {
+            fn try_get_by<I: ColIdx>(res: &QueryResult, idx: I) -> Result<Self, TryGetError> {
+                let uuid: Uuid = Uuid::try_get_by(res, idx)?;
+                Ok($name(uuid))
+            }
+        }
+
+        /// Implement conversion to Value for writing to database
         impl From<$name> for Value {
             fn from(id: $name) -> Self {
                 Value::Uuid(Some(Box::new(id.0)))
             }
         }
 
-        impl TryGetable for $name {
-            fn try_get_by<I: sea_orm::ColIdx>(
-                res: &QueryResult,
-                idx: I,
-            ) -> Result<Self, TryGetError> {
-                let uuid: Uuid = res.try_get_by(idx).map_err(TryGetError::DbErr)?;
-                Ok(Self(uuid))
+        /// Implement Nullable for optional columns
+        impl Nullable for $name {
+            fn null() -> Value {
+                Value::Uuid(None)
             }
         }
 
+        /// Implement ValueType for sea-query type system
         impl ValueType for $name {
             fn try_from(v: Value) -> Result<Self, ValueTypeErr> {
                 match v {
-                    Value::Uuid(Some(uuid)) => Ok(Self(*uuid)),
+                    Value::Uuid(Some(uuid)) => Ok($name(*uuid)),
                     _ => Err(ValueTypeErr),
                 }
             }
@@ -125,17 +127,12 @@ macro_rules! define_id {
                 ArrayType::Uuid
             }
 
-            fn column_type() -> sea_orm::ColumnType {
-                sea_orm::ColumnType::Uuid
+            fn column_type() -> ColumnType {
+                ColumnType::Uuid
             }
         }
 
-        impl Nullable for $name {
-            fn null() -> Value {
-                Value::Uuid(None)
-            }
-        }
-
+        /// Implement TryFromU64 (UUID cannot be converted from u64)
         impl TryFromU64 for $name {
             fn try_from_u64(_: u64) -> Result<Self, DbErr> {
                 Err(DbErr::ConvertFromU64(stringify!($name)))
@@ -184,5 +181,52 @@ mod tests {
         let json = serde_json::to_string(&id).unwrap();
         let deserialized: TopicId = serde_json::from_str(&json).unwrap();
         assert_eq!(id, deserialized);
+    }
+
+    #[test]
+    fn test_type_safety() {
+        let profile_id = ProfileId::new();
+        let group_id = GroupId::new();
+        
+        // This should compile - same type
+        let _same: ProfileId = profile_id;
+        
+        // This would NOT compile - different types (uncomment to verify):
+        // let _different: GroupId = profile_id;
+        
+        // Can only convert through Uuid
+        let uuid: Uuid = profile_id.into();
+        let _as_group: GroupId = GroupId::from_uuid(uuid);
+    }
+
+    #[test]
+    fn test_value_type_conversion() {
+        use sea_orm::sea_query::ValueType;
+        
+        let id = PostId::new();
+        let value: Value = id.into();
+        
+        match value {
+            Value::Uuid(Some(uuid)) => {
+                let recovered = <PostId as ValueType>::try_from(Value::Uuid(Some(uuid))).unwrap();
+                assert_eq!(recovered, id);
+            }
+            _ => panic!("Expected UUID value"),
+        }
+    }
+
+    #[test]
+    fn test_nullable() {
+        use sea_orm::sea_query::Nullable;
+        
+        let null_value = ProfileId::null();
+        assert!(matches!(null_value, Value::Uuid(None)));
+    }
+
+    #[test]
+    fn test_try_from_u64_fails() {
+        let result = UserId::try_from_u64(12345);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), DbErr::ConvertFromU64(_)));
     }
 }

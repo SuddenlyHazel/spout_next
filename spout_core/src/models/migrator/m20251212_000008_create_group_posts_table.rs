@@ -1,12 +1,10 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::*, schema::*};
 
+use super::m20251212_000006_create_group_users_table::GroupUser;
+use super::m20251212_000007_create_group_topics_table::GroupTopic;
+
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20251212_000008_create_group_posts_table"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -15,20 +13,16 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(GroupPost::Table)
-                    .col(
-                        ColumnDef::new(GroupPost::Id)
-                            .string()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(GroupPost::UserId).string().not_null())
-                    .col(ColumnDef::new(GroupPost::TopicId).string().not_null())
-                    .col(ColumnDef::new(GroupPost::Title).string().not_null())
-                    .col(ColumnDef::new(GroupPost::Body).string().not_null())
-                    .col(ColumnDef::new(GroupPost::CreatedAt).string().not_null())
+                    .col(pk_uuid(GroupPost::Id))
+                    .col(uuid(GroupPost::UserId))
+                    .col(uuid(GroupPost::TopicId))
+                    .col(uuid_null(GroupPost::ParentPostId)) // For threaded replies
+                    .col(string(GroupPost::Title))
+                    .col(string(GroupPost::Body))
+                    .col(timestamp(GroupPost::CreatedAt))
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_post_user_id")
+                            .name("fk-group-post-user_id")
                             .from(GroupPost::Table, GroupPost::UserId)
                             .to(GroupUser::Table, GroupUser::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -36,9 +30,17 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_post_topic_id")
+                            .name("fk-group-post-topic_id")
                             .from(GroupPost::Table, GroupPost::TopicId)
                             .to(GroupTopic::Table, GroupTopic::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-group-post-parent_id")
+                            .from(GroupPost::Table, GroupPost::ParentPostId)
+                            .to(GroupPost::Table, GroupPost::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -77,6 +79,17 @@ impl MigrationTrait for Migration {
                     .col(GroupPost::CreatedAt)
                     .to_owned(),
             )
+            .await?;
+
+        // Create index on parent_post_id for efficient reply lookups
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_group_posts_parent_post_id")
+                    .table(GroupPost::Table)
+                    .col(GroupPost::ParentPostId)
+                    .to_owned(),
+            )
             .await
     }
 
@@ -87,25 +100,14 @@ impl MigrationTrait for Migration {
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 pub enum GroupPost {
     Table,
     Id,
     UserId,
     TopicId,
+    ParentPostId,
     Title,
     Body,
     CreatedAt,
-}
-
-#[derive(Iden)]
-enum GroupUser {
-    Table,
-    Id,
-}
-
-#[derive(Iden)]
-enum GroupTopic {
-    Table,
-    Id,
 }

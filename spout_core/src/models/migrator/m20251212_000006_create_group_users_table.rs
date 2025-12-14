@@ -1,12 +1,10 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::*, schema::*};
 
+use super::m20251212_000002_create_profiles_table::Profile;
+use super::m20251212_000003_create_groups_table::Group;
+
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20251212_000006_create_group_users_table"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -15,17 +13,12 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(GroupUser::Table)
-                    .col(
-                        ColumnDef::new(GroupUser::Id)
-                            .string()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(GroupUser::GroupId).string().not_null())
-                    .col(ColumnDef::new(GroupUser::ProfileId).string().not_null())
+                    .col(pk_uuid(GroupUser::Id))
+                    .col(uuid(GroupUser::GroupId))
+                    .col(uuid(GroupUser::ProfileId))
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_user_group_id")
+                            .name("fk-group-user-group_id")
                             .from(GroupUser::Table, GroupUser::GroupId)
                             .to(Group::Table, Group::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -33,7 +26,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_user_profile_id")
+                            .name("fk-group-user-profile_id")
                             .from(GroupUser::Table, GroupUser::ProfileId)
                             .to(Profile::Table, Profile::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -86,22 +79,10 @@ impl MigrationTrait for Migration {
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 pub enum GroupUser {
     Table,
     Id,
     GroupId,
     ProfileId,
-}
-
-#[derive(Iden)]
-enum Group {
-    Table,
-    Id,
-}
-
-#[derive(Iden)]
-enum Profile {
-    Table,
-    Id,
 }

@@ -1,12 +1,7 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::*, schema::*};
 
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20251212_000003_create_groups_table"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -15,8 +10,8 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Group::Table)
-                    .col(ColumnDef::new(Group::Id).string().not_null().primary_key())
-                    .col(ColumnDef::new(Group::ProfileId).string().not_null())
+                    .col(pk_uuid(Group::Id))
+                    .col(uuid(Group::ProfileId))
                     .to_owned(),
             )
             .await?;
@@ -40,7 +35,7 @@ impl MigrationTrait for Migration {
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 pub enum Group {
     Table,
     Id,

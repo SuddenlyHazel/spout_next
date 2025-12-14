@@ -1,18 +1,9 @@
-use std::thread;
-
 // The dioxus prelude contains a ton of common items used in dioxus apps. It's a good idea to import wherever you
 // need dioxus
 use dioxus::{core::spawn_forever, prelude::*};
 
-use dioxus_provider::{
-    global::init_global_providers,
-    hooks::{use_provider, State},
-    prelude::provider,
-    ProviderConfig,
-};
-use spout_core::profile::Profile;
-use tokio::runtime::Runtime;
 use views::{Blog, Home, Navbar};
+use spout_core::entity::prelude::*;
 
 /// Define a components module that contains all shared components for our app.
 mod components;
@@ -52,19 +43,7 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 fn main() {
     // The `launch` function is the main entry point for a dioxus app. It takes a component and renders it with the platform feature
     // you have enabled
-    ProviderConfig::new().init().expect("failed?");
     dioxus::LaunchBuilder::new().launch(App);
-}
-
-#[provider]
-async fn get_profiles() -> Result<Vec<Profile>, String> {
-    // Simulate a network request
-    let spout = spout_core::core().await;
-    spout
-        .profiles
-        .list_profiles()
-        .await
-        .map_err(|e| e.to_string())
 }
 
 /// App is the main component of our app. Components are the building blocks of dioxus apps. Each component is a function
@@ -74,15 +53,14 @@ async fn get_profiles() -> Result<Vec<Profile>, String> {
 #[component]
 fn App() -> Element {
     spawn_forever(async {
-        info!("here?");
         spout_core::core().await;
     });
 
-    let profiles = use_provider(get_profiles(), ());
+    let profiles = use_resource(get_profiles);
 
     let inner = match &*profiles.read() {
-        State::Loading { .. } => rsx! { div { "Loading..." } },
-        State::Success(data) => rsx! {
+        None => rsx! { div { "Loading..." } },
+        Some(Ok(data)) => rsx! {
            for profile in data {
                div {
                    p {
@@ -91,7 +69,7 @@ fn App() -> Element {
                }
            }
         },
-        State::Error(err) => rsx! { div { "Error: {err}" } },
+        Some(Err(err)) => rsx! { div { "Error: {err}" } },
     };
     // The `rsx!` macro lets us define HTML inside of rust. It expands to an Element with all of our HTML inside.
     rsx! {
@@ -112,4 +90,11 @@ fn App() -> Element {
         // the layouts and components for the active route.
         Router::<Route> {}
     }
+}
+
+
+async fn get_profiles() -> anyhow::Result<Vec<ProfileModel>> {
+    let core = spout_core::core().await;
+    let r = core.profiles.list_profiles().await?;
+    Ok(r)
 }

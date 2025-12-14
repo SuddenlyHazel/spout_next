@@ -1,12 +1,9 @@
-use sea_orm::{Database, DatabaseConnection, SqlxSqlitePoolConnection};
+use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 
 use crate::config::SpoutConfig;
 
-pub mod group;
-pub mod identity;
 pub mod migrator;
-pub mod profile;
 
 pub async fn open_or_create_db(config: &SpoutConfig) -> DatabaseConnection {
     // Use display() to convert PathBuf to string representation

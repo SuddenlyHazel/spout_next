@@ -11,6 +11,7 @@ dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
 tokio = { workspace = true, features = ["full"] }
 spout_core = { path = "../spout_core"}
 dioxus-provider = "0.2.1"
+anyhow = "1.0.100"
 
 [features]
 default = ["desktop"]

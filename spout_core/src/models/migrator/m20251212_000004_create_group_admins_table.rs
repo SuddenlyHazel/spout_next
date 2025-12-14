@@ -1,12 +1,9 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::*, schema::*};
 
+use super::m20251212_000003_create_groups_table::Group;
+
+#[derive(DeriveMigrationName)]
 pub struct Migration;
-
-impl MigrationName for Migration {
-    fn name(&self) -> &str {
-        "m20251212_000004_create_group_admins_table"
-    }
-}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -15,8 +12,8 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(GroupAdmin::Table)
-                    .col(ColumnDef::new(GroupAdmin::GroupId).string().not_null())
-                    .col(ColumnDef::new(GroupAdmin::IdentityId).string().not_null())
+                    .col(uuid(GroupAdmin::GroupId))
+                    .col(uuid(GroupAdmin::IdentityId))
                     .primary_key(
                         Index::create()
                             .col(GroupAdmin::GroupId)
@@ -24,7 +21,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_group_admin_group_id")
+                            .name("fk-group-admin-group_id")
                             .from(GroupAdmin::Table, GroupAdmin::GroupId)
                             .to(Group::Table, Group::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -53,15 +50,9 @@ impl MigrationTrait for Migration {
     }
 }
 
-#[derive(Iden)]
+#[derive(DeriveIden)]
 pub enum GroupAdmin {
     Table,
     GroupId,
     IdentityId,
-}
-
-#[derive(Iden)]
-enum Group {
-    Table,
-    Id,
 }
